@@ -145,14 +145,16 @@ down:
 	@echo "Running target: down"
 	docker compose -f $(COMPOSE_FILE) -p $(PROJECT) down
 
-## Clean up virtual environment and other generated files
-clean:
+.PHONY: clean
+clean: ## Clean up virtual environment and other generated files
 	@echo "Running target: clean"
-	rm -rf $(VENV)
-	find . -name '__pycache__' -type d -exec rm -r {} +
-	find . -name '*.pyc' -exec rm -f {} +
-	find . -name '*.pyo' -exec rm -f {} +
-	find . -name '*.log' -exec rm -f {} +
+	@rm -rf $(VENV)
+	@find . -type d -name '__pycache__' -exec rm -r {} +
+	@find . -type f -name '*.pyc' -exec rm -f {} +
+	@find . -type f -name '*.pyo' -exec rm -f {} +
+	@find . -type f -name '*.log' -exec rm -f {} +
+	@find . -type f -name '*.egg-info' -exec rm -rf {} +
+	@find . -type f -name '*.dist-info' -exec rm -rf {} +
 
 .PHONY: lint
 lint: ## Lint the Python source code
