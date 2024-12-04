@@ -93,6 +93,8 @@ venv/
 **/.vscode/
 
 # Secrets
-**/secrets.toml
+**/.secrets.toml
 
 **/.DS_Store
+
+**/sensor.db
