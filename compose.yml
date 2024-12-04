@@ -1,0 +1,18 @@
+services:
+  python-sensorpush:
+    container_name: python-sensorpush
+    hostname: python-sensorpush
+    tty: true
+    environment:
+       CONFIG_SECRETS_FILE: /run/secrets/config_secrets
+       PYTHONUNBUFFERED: 1
+    image: python-sensorpush
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: on-failure:3
+    secrets:
+      - config_secrets
+secrets:
+  config_secrets:
+    file: ./app/config/secrets.toml
