@@ -153,3 +153,13 @@ clean:
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
 	find . -name '*.log' -exec rm -f {} +
+
+.PHONY: lint
+lint: ## Lint the Python source code
+	@echo "Running target: lint"
+	@$(LINT_CMD)
+
+.PHONY: fmt
+fmt: ## Format the Python source code
+	@echo "Running target: fmt"
+	@$(FMT_CMD)
