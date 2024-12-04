@@ -336,7 +336,6 @@ def main():
 
     # Validate settings in settings.toml
     required_settings = [
-        "ES_URL",
         "INDEX_NAME",
         "AUTHENTICATE_URL",
         "AUTHORIZATION_URL",
@@ -345,7 +344,6 @@ def main():
         "APM_SERVICE_VERSION",
         "APM_ENVIRONMENT",
         "APM_SERVICE_NAME",
-        "APM_SERVER_URL",
         "GATEWAY_URL",
         "SENSOR_URL",
         "LIMIT",
@@ -363,9 +361,12 @@ def main():
     required_secrets = [
         "ES_USERNAME",
         "ES_PASSWORD",
+        "ES_URL",
+        "KB_URL",
+        "APM_SECRET_TOKEN",
+        "APM_SERVER_URL",
         "SENSORPUSH_EMAIL",
         "SENSORPUSH_PASSWORD",
-        "APM_SECRET_TOKEN",
     ]
     missing_secrets = [key for key in required_secrets if key not in CFG["SECRETS"] or not CFG["SECRETS"][key]]
 
@@ -377,7 +378,7 @@ def main():
 
     # Initialize Elasticsearch client
     es_client = Elasticsearch(
-        CFG["SETTINGS"]["ES_URL"],
+        CFG["SECRETS"]["ES_URL"],
         basic_auth=(CFG["SECRETS"]["ES_USERNAME"], CFG["SECRETS"]["ES_PASSWORD"]),
     )
 
@@ -395,7 +396,7 @@ def main():
     # Create Elastic APM client
     apm_client = elasticapm.Client(
         {
-            "SERVER_URL": CFG["SETTINGS"]["APM_SERVER_URL"],
+            "SERVER_URL": CFG["SECRETS"]["APM_SERVER_URL"],
             "SERVICE_NAME": CFG["SETTINGS"]["APM_SERVICE_NAME"],
             "SECRET_TOKEN": CFG["SECRETS"]["APM_SECRET_TOKEN"],
             "ENVIRONMENT": CFG["SETTINGS"]["APM_ENVIRONMENT"],

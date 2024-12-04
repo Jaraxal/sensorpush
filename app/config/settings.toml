@@ -1,0 +1,55 @@
+[SETTINGS]
+# Elastic configuration
+INDEX_NAME = "sensorpush"
+DELETE_INDEX = false
+
+# APM Configuration
+APM_SERVICE_VERSION = "2.0"
+APM_ENVIRONMENT = "Production"
+APM_SERVICE_NAME = "python-sensorpush"
+
+# SensorPush Configuration
+DEFAULT_START_TIME = "2024-12-01T00:00:00.000Z"
+AUTHENTICATE_URL = "https://api.sensorpush.com/api/v1/oauth/authorize"
+AUTHORIZATION_URL = "https://api.sensorpush.com/api/v1/oauth/accesstoken"
+GATEWAY_URL = "https://api.sensorpush.com/api/v1/devices/gateways"
+SENSOR_URL = "https://api.sensorpush.com/api/v1/devices/sensors"
+DATA_URL = "https://api.sensorpush.com/api/v1/samples"
+LIMIT = 500
+SLEEP_DURATION = 60
+
+# Sensor Configuration
+[[SENSORS]]
+id = "16786480.31759915751390790374"
+name = "sensor1"
+description = "Back Outdoor Sensor"
+
+[[SENSORS]]
+id = "16785468.27282632252927060817"
+name = "sensor2"
+description = "Office Sensor"
+
+[[SENSORS]]
+id = "16790861.31423968661707354582"
+name = "sensor3"
+description = "Family Room Sensor"
+
+[[SENSORS]]
+id = "16790976.41992679133619533343"
+name = "sensor4"
+description = "Front Outdoor Sensor"
+
+[[SENSORS]]
+id = "16781432.9249598422354522167"
+name = "sensor5"
+description = "Bedroom Sensor"
+
+[[SENSORS]]
+id = "16781414.4311703833465249174"
+name = "sensor6"
+description = "Living Room Sensor"
+
+[[SENSORS]]
+id = "16907598.18759925232750857632"
+name = "sensor7"
+description = "Basement Sensor"
