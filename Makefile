@@ -1,8 +1,8 @@
 # Variables
 SHELL:=/bin/bash
-COMPOSE_FILE := compose.yml
 PROJECT := sensorpush
 IMAGE_NAME := sensorpush-python
+COMPOSE_FILE := compose.yml
 GIT_HASH ?= $(shell git log --format="%h" -n 1)
 VENV = venv
 PYTHON = $(VENV)/bin/python
@@ -55,113 +55,104 @@ ifeq ($(shell [ $(PYTHON_MINOR_VERSION) -ge 11 ] && echo 1 || echo 0), 0)
 endif
 
 .DEFAULT_GOAL := help
-.PHONY: help check-python-version all init install install-dev test lint fmt build compile-requirements compile-dev-requirements sync-requirements sync-dev-requriements up start stop down 
 
-## Default Target: Display help information about available rules
-help:
-	@echo "$$(tput setaf 2)Available rules:$$(tput sgr0)";sed -ne"/^## /{h;s/.*//;:d" -e"H;n;s/^## /---/;td" -e"s/:.*//;G;s/\\n## /===/;s/\\n//g;p;}" ${MAKEFILE_LIST}|awk -F === -v n=$$(tput cols) -v i=4 -v a="$$(tput setaf 6)" -v z="$$(tput sgr0)" '{printf"- %s%s%s\n",a,$$1,z;m=split($$2,w,"---");l=n-i;for(j=1;j<=m;j++){l-=length(w[j])+1;if(l<= 0){l=n-i-length(w[j])-1;}printf"%*s%s\n\n",-i," ",w[j];}}'
+.PHONY: help
+help: ## Display help information about available rules
+	@echo "$(GREEN)Available rules:$(RESET)"
+	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
+	awk -v cyan="$(CYAN)" -v reset="$(RESET)" 'BEGIN {FS = ":.*##"}; {printf "- %s%s%s\n    %s\n\n", cyan, $$1, reset, $$2}'
 
-## Check the Python version
-check-python-version: 
+.PHONY: check-python-version
+check-python-version: ## Check the Python version
 	@echo "Using Python: $(PYTHON)"
 	@echo "Python Version: $(PYTHON_VERSION)"
 
-## Setup environment and install dependencies
-all: init compile-requirements install
+all: init compile-requirements sync-requirements ## Setup environment and install dependencies
 	@echo "Running target: all"
 
-## Create a virtual environment
-init: check-python-version
+init: check-python-version ## Create a virtual environment
 	@echo "Running target: init"
-	@if [ -d $(VENV) ]; then \
-		echo "Removing existing virtual environment..."; \
-		rm -rf $(VENV); \
+	@if [ ! -d $(VENV) ]; then \
+		echo "Virtual environment does not exist, creating new virtual environment ..."; \
+		$(PYTHON_CMD) -m venv $(VENV); \
 	fi
 
-	@echo "Creating new virtual environment..."
-	$(PYTHON_CMD) -m venv $(VENV)
-
-	@echo "Activating virtual environment and installing requirements..."
+	@echo "Installing requirements into virtual environment..."
 	@$(PIP) install --upgrade pip setuptools wheel pip-tools
+	@$(MAKE) compile-requirements
+	@$(MAKE) sync-requirements
 	@echo "Virtual environment setup complete."
 
-## Compile the requirements.txt from requirements.in
-compile-requirements:
+.PHONY: compile-requirements
+compile-requirements: ## pip-compile Python requirement files
 	@echo "Running target: compile-requirements"
-	$(PIP_COMPILE) $(REQUIREMENTS_IN)
+	@$(PIP_COMPILE) $(REQUIREMENTS_IN) -o $(REQUIREMENTS_TXT)
+	@$(PIP_COMPILE) $(DEV_REQUIREMENTS_IN) -o $(DEV_REQUIREMENTS_TXT)
 
-## Compile the dev-requirements.txt from dev-requirements.in (which includes requirements.txt)
-compile-dev-requirements: compile-requirements
-	@echo "Running target: compile-dev-requirements"
-	$(PIP_COMPILE) $(DEV_REQUIREMENTS_IN)
-
-## Sync dependencies from compiled requirements.txt
-sync-requirements:
+.PHONY: sync-requirements
+sync-requirements: ## pip-sync Python modules with virtual environment
 	@echo "Running target: sync-requirements"
-	$(PIP_SYNC) $(REQUIREMENTS_TXT)
+	@$(PIP_SYNC) $(DEV_REQUIREMENTS_TXT)
 
-## Sync development dependencies from compiled dev-requirements.txt
-sync-dev-requirements:
-	@echo "Running target: sync-dev-requirements"
-	$(PIP_SYNC) $(DEV_REQUIREMENTS_TXT)
-
-## Run unit tests
-test:
+.PHONY: test
+test: ## Run unit tests
 	@echo "Running target: test"
 	$(TEST_CMD)
 
-## Run linting to check code style
-lint:
+.PHONY: lint
+lint: ## Run linting to check code style
 	@echo "Running target: lint"
 	$(LINT_CMD)
 
-## Run linting to check code style
-fmt:
+.PHONY: fmt
+fmt: ## Run linting to check code style
 	@echo "Running target: fmt"
 	$(FMT_CMD)
 
-## Build the Docker image
-build: init
+build: init ## Build the Docker image
 	@echo "Running target: build"
 	docker build -t $(IMAGE_NAME) ./app
 
-## Create and start the Docker Compose services
-up: 
+.PHONY: up
+up: ## Create and start the Docker Compose services
 	@echo "Running target: up"
 	docker compose -f $(COMPOSE_FILE) -p $(PROJECT) up -d
 
-## Start the Docker Compose services
-start:
+.PHONY: start
+start: ## Start the Docker Compose services
 	@echo "Running target: start"
 	docker compose -f $(COMPOSE_FILE) -p $(PROJECT) start
 
-## Stop the Docker Compose services
-stop:
+.PHONY: stop
+stop: ## Stop the Docker Compose services
 	@echo "Running target: stop"
 	docker compose -f $(COMPOSE_FILE) -p $(PROJECT) stop
 
-## Stop and remove the Docker Compose services
-down:
+.PHONY: down
+down: ## Stop and remove the Docker Compose services
 	@echo "Running target: down"
 	docker compose -f $(COMPOSE_FILE) -p $(PROJECT) down
+
+.PHONY: create-k8s-deployment
+create-k8s-deployment: ## Create k8s deployment
+	@echo "Running target: create-k8s-deployment"
+	@source $(VENV)/bin/activate; \
+	$(PYTHON) ./annotate_elastic_apm.py -m "Created application deployment"; \
+	#kubectl apply -f sensorpush_deployment.yaml
+
+.PHONY: delete-k8s-deployment
+delete-k8s-deployment: ## Delete k8s deployment
+	@echo "Running target: delete-k8s-deployment"
+	@source $(VENV)/bin/activate; \
+	$(PYTHON) ./annotate_elastic_apm.py -m "Deleted application deployment"; \
+	#kubectl delete -f sensorpush_deployment.yaml
 
 .PHONY: clean
 clean: ## Clean up virtual environment and other generated files
 	@echo "Running target: clean"
-	@rm -rf $(VENV)
 	@find . -type d -name '__pycache__' -exec rm -r {} +
 	@find . -type f -name '*.pyc' -exec rm -f {} +
 	@find . -type f -name '*.pyo' -exec rm -f {} +
 	@find . -type f -name '*.log' -exec rm -f {} +
 	@find . -type f -name '*.egg-info' -exec rm -rf {} +
 	@find . -type f -name '*.dist-info' -exec rm -rf {} +
-
-.PHONY: lint
-lint: ## Lint the Python source code
-	@echo "Running target: lint"
-	@$(LINT_CMD)
-
-.PHONY: fmt
-fmt: ## Format the Python source code
-	@echo "Running target: fmt"
-	@$(FMT_CMD)
