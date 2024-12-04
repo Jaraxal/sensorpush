@@ -111,7 +111,6 @@ def make_api_request(url: str, headers: Dict[str, str], body: Dict[str, Any]) ->
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"Request to {url} failed: {e}")
-            apm_client.capture_exception()
             return {}
 
 
