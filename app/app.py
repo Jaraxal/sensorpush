@@ -175,7 +175,7 @@ def fetch_sensor_data(
         Dict[str, Any]: Raw sensor data from the API, or an empty dictionary on failure.
     """
     with elasticapm.capture_span(name="fetch_sensor_data"):  # type: ignore
-        logger.info(f"Fetching data for sensor {sensor_id}.")
+        logger.info(f"Fetching data for sensor_id: [{sensor_id}].")
         headers = create_headers(auth_token=access_token)
         body = {
             "sensors": [sensor_id],
@@ -199,7 +199,7 @@ def get_sensor_timestamp(sensor_id: str) -> Optional[str]:
         Optional[str]: Latest timestamp, or None if not found.
     """
     with elasticapm.capture_span(name="get_sensor_timestamp"):  # type: ignore
-        logger.info(f"Fetching timestamp for sensor {sensor_id}.")
+        logger.info(f"Fetching timestamp for sensor_id: [{sensor_id}].")
         with Session(engine) as session:
             result = session.exec(select(Sensor).where(Sensor.id == sensor_id)).first()
             return result.timestamp if result else None
@@ -214,30 +214,31 @@ def update_sensor_timestamp(sensor_id: str, timestamp: str) -> None:
         timestamp (str): New timestamp to save.
     """
     with elasticapm.capture_span(name="update_sensor_timestamp"):  # type: ignore
-        logger.info(f"Updating timestamp for sensor {sensor_id}.")
+        logger.info(f"Updating timestamp in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}].")
         with Session(engine) as session:
             sensor = session.exec(select(Sensor).where(Sensor.id == sensor_id)).one_or_none()
             if sensor:
                 sensor.timestamp = timestamp
                 session.add(sensor)
                 session.commit()
+            else:
+                logger.info(f"Record for sensor_id: [{sensor_id}] not found in the database.") 
+                insert_sensor_record(sensor_id=sensor_id, timestamp=timestamp)
 
 
-def insert_sensor_record(sensor: Dict[str, Any], timestamp: str) -> None:
+def insert_sensor_record(sensor_id: str, timestamp: str) -> None:
     """
     Insert a new sensor record into the database.
 
     Args:
-        sensor (Dict[str, Any]): Sensor metadata.
+        sensor (str): ID of the sensor.
         timestamp (str): Timestamp for the record.
     """
     with elasticapm.capture_span(name="insert_sensor_timestamp"):  # type: ignore
-        logger.info(f"Inserting new record for sensor {sensor['id']}.")
+        logger.info(f"Inserting new record in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}].")
         with Session(engine) as session:
             new_record = Sensor(
-                id=sensor["id"],
-                name=sensor["name"],
-                description=sensor.get("description", ""),
+                id=sensor_id,
                 timestamp=timestamp,
             )
             session.add(new_record)
@@ -257,23 +258,24 @@ def format_sensor_data(sensor: Dict[str, Any], raw_data: Dict[str, Any]) -> List
         List[Dict[str, Any]]: Formatted sensor data as a list of dictionaries.
     """
     with elasticapm.capture_span(name="format_sensor_data"):  # type: ignore
-        logger.info(f"Formatting data for sensor {sensor['id']}.")
         records = []
-        for entry in raw_data.get("sensors", {}).get(sensor["id"], []):
-            record = {
-                "sensor.observed": entry["observed"],
-                "sensor.name": sensor["name"],
-                "sensor.id": sensor["id"],
-                "sensor.description": sensor.get("description", ""),
-                "sensor.gateways": entry.get("gateways", []),
-                "sensor.temperature": entry.get("temperature"),
-                "sensor.humidity": entry.get("humidity"),
-                "sensor.dewpoint": entry.get("dewpoint"),
-                "sensor.barometric_pressure": entry.get("barometric_pressure"),
-            }
-            record_hash = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
-            record.update({"hash": record_hash, "@timestamp": entry["observed"]})
-            records.append(record)
+        for sensor_id, sensor_data in raw_data['sensors'].items():
+            logger.info(f"Formatting data for sensor {sensor_id}.")
+            for reading in sensor_data:
+                record = {
+                    "sensor.observed": reading.get("observed", None),
+                    "sensor.name": sensor.get("name", None),
+                    "sensor.id": sensor_id,
+                    "sensor.description": sensor.get("description", None),
+                    "sensor.gateways": reading.get("gateways", None),
+                    "sensor.temperature": reading.get("temperature", None),
+                    "sensor.humidity": reading.get("humidity", None),
+                    "sensor.dewpoint": reading.get("dewpoint", None),
+                    "sensor.barometric_pressure": reading.get("barometric_pressure", None),
+                }
+                record_hash = hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()
+                record.update({"hash": record_hash, "@timestamp": reading.get("observed")})
+                records.append(record)
         return records
 
 
@@ -287,7 +289,9 @@ def send_to_elasticsearch(es_client: Elasticsearch, records: List[Dict[str, Any]
         index_name (str): Elasticsearch index name.
     """
     with elasticapm.capture_span(name="send_to_elasticsearch"):  # type: ignore
-        logger.info(f"Sending {len(records)} records to Elasticsearch index {index_name}.")
+        logger.info(f"Sending [{len(records)}] records to Elasticsearch index [{index_name}].")
+        success = 0 
+
         try:
             for ok, action in streaming_bulk(
                 client=es_client,
@@ -296,6 +300,10 @@ def send_to_elasticsearch(es_client: Elasticsearch, records: List[Dict[str, Any]
             ):
                 if not ok:
                     logger.error(f"Failed to index document: {action}")
+                else:
+                    success += 1
+
+            logger.info(f"Successfully indexed [{success}] documents in Elasticsearch.") 
         except (ConnectionError, TransportError, RequestError) as e:
             logger.error(f"Error during Elasticsearch indexing: {e}")
 
@@ -419,18 +427,27 @@ def main():
 
         if authorization:
             for sensor in CFG["SENSORS"]:
+                logger.info(f"Processing data for sensor_id: [{sensor['id']}] sensor_name: [{sensor['name']}].")
                 timestamp = get_sensor_timestamp(sensor["id"]) or CFG["SETTINGS"]["DEFAULT_START_TIME"]
+                logger.info(f"Last timestamp for sensor_id: [{sensor['id']}]: [{timestamp}].")
                 raw_data = fetch_sensor_data(
-                    CFG["SETTINGS"]["DATA_URL"],
-                    authorization,
-                    sensor["id"],
-                    ["temperature", "humidity", "dewpoint"],
-                    timestamp,
-                    CFG["SETTINGS"]["LIMIT"],
+                    url=CFG["SETTINGS"]["DATA_URL"],
+                    access_token=authorization,
+                    sensor_id=sensor["id"],
+                    measures=["temperature", "humidity", "dewpoint"],
+                    start_time=timestamp,
+                    limit=CFG["SETTINGS"]["LIMIT"],
                 )
-                formatted_data = format_sensor_data(sensor, raw_data)
-                send_to_elasticsearch(es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"])
 
+                formatted_data = format_sensor_data(sensor, raw_data)
+                if formatted_data:
+                    update_sensor_timestamp(sensor_id=sensor["id"], timestamp=formatted_data[0]["sensor.observed"]) # most recent timestamp is the first record
+                    send_to_elasticsearch(es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"])
+                else:
+                    logger.error(f"No data found for sensor_id: [{sensor['id']}].")
+        else:
+            logger.error("Authorization failed. Skipping data processing.")
+            apm_client.end_transaction(__name__, result="failure")
         apm_client.end_transaction(__name__, result="success")
 
         logger.info(f"Sleeping for {CFG['SETTINGS']['SLEEP_DURATION']} seconds.")
