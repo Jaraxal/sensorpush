@@ -1,0 +1,14 @@
+{
+    "index_patterns": [
+        "sensorpush*"
+    ],
+    "data_stream": {},
+    "composed_of": [
+        "sensorpush-mappings",
+        "sensorpush-settings"
+    ],
+    "priority": 500,
+    "_meta": {
+        "description": "Index Template for Sensorpush data."
+    }
+}

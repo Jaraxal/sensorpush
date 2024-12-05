@@ -1,0 +1,42 @@
+{
+    "template": {
+        "mappings": {
+            "properties": {
+                "@timestamp": {
+                    "type": "date"
+                },
+                "sensor.barometric_pressure": {
+                    "type": "double"
+                },
+                "sensor.description": {
+                    "type": "keyword"
+                },
+                "sensor.dewpoint": {
+                    "type": "double"
+                },
+                "sensor.gateways": {
+                    "type": "keyword"
+                },
+                "sensor.humidity": {
+                    "type": "double"
+                },
+                "sensor.id": {
+                    "type": "keyword"
+                },
+                "sensor.name": {
+                    "type": "keyword"
+                },
+                "sensor.observed": {
+                    "type": "date",
+                    "format": "iso8601"
+                },
+                "sensor.temperature": {
+                    "type": "double"
+                }
+            }
+        }
+    },
+    "_meta": {
+        "description": "Index Mappings for Sensorpush data."
+    }
+}
