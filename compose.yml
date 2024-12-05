@@ -1,12 +1,12 @@
 services:
-  python-sensorpush:
-    container_name: python-sensorpush
-    hostname: python-sensorpush
+  sensorpush:
+    container_name: sensorpush-python
+    hostname: sensorpush-python
     tty: true
     environment:
-       CONFIG_SECRETS_FILE: /run/secrets/config_secrets
-       PYTHONUNBUFFERED: 1
-    image: python-sensorpush
+      CONFIG_SECRETS_FILE: /run/secrets/config_secrets
+      PYTHONUNBUFFERED: 1
+    image: sensorpush-python
     build:
       context: ./app
       dockerfile: Dockerfile
