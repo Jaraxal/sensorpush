@@ -3,6 +3,7 @@ import json
 import sys
 import time
 from typing import Any, Dict, Generator, List, Optional
+from datetime import datetime
 
 import ecs_logging
 import logging
@@ -277,10 +278,14 @@ def format_sensor_data(
     """
     with elasticapm.capture_span(name="format_sensor_data"):  # type: ignore
         records = []
+        current_datetime = datetime.utcnow()
+        formatted_datetime = current_datetime.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+
         for sensor_id, sensor_data in raw_data["sensors"].items():
             logger.info(f"Formatting data for sensor {sensor_id}.")
             for reading in sensor_data:
                 record = {
+                    "sensor.ingested": formatted_datetime,
                     "sensor.observed": reading.get("observed", None),
                     "sensor.name": sensor.get("name", None),
                     "sensor.id": sensor_id,
@@ -292,6 +297,7 @@ def format_sensor_data(
                     "sensor.barometric_pressure": reading.get(
                         "barometric_pressure", None
                     ),
+                    "sensor.altitude": reading.get("altitude", None),
                 }
                 record_hash = hashlib.sha256(
                     json.dumps(record, sort_keys=True).encode()
@@ -481,7 +487,7 @@ def main():
                     url=CFG["SETTINGS"]["DATA_URL"],
                     access_token=authorization,
                     sensor_id=sensor["id"],
-                    measures=["temperature", "humidity", "dewpoint"],
+                    measures=["temperature", "humidity", "dewpoint", "barometric_pressure", "altitude"],
                     start_time=timestamp,
                     limit=CFG["SETTINGS"]["LIMIT"],
                 )
