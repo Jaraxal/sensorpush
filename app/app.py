@@ -483,6 +483,7 @@ def main():
                 logger.info(
                     f"Last timestamp for sensor_id: [{sensor['id']}]: [{timestamp}]."
                 )
+
                 raw_data = fetch_sensor_data(
                     url=CFG["SETTINGS"]["DATA_URL"],
                     access_token=authorization,
@@ -492,17 +493,21 @@ def main():
                     limit=CFG["SETTINGS"]["LIMIT"],
                 )
 
-                formatted_data = format_sensor_data(sensor, raw_data)
-                if formatted_data:
-                    update_sensor_timestamp(
-                        sensor_id=sensor["id"],
-                        timestamp=formatted_data[0]["sensor.observed"],
-                    )  # most recent timestamp is the first record
-                    send_to_elasticsearch(
-                        es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"]
-                    )
+                if raw_data:
+                    formatted_data = format_sensor_data(sensor, raw_data)
+                    if formatted_data:
+                        update_sensor_timestamp(
+                            sensor_id=sensor["id"],
+                            timestamp=formatted_data[0]["sensor.observed"],
+                        )  # most recent timestamp is the first record
+                        send_to_elasticsearch(
+                            es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"]
+                        )
+                    else:
+                        logger.error(f"No formated data found for sensor_id: [{sensor['id']}].")
                 else:
-                    logger.error(f"No data found for sensor_id: [{sensor['id']}].")
+                    logger.error(f"No raw data found for sensor_id: [{sensor['id']}].")
+
         else:
             logger.error("Authorization failed. Skipping data processing.")
             apm_client.end_transaction(__name__, result="failure")
