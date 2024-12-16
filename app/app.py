@@ -265,9 +265,7 @@ def insert_sensor_record(sensor_id: str, timestamp: str) -> None:
 
 
 # Formatting and Elasticsearch functions
-def format_sensor_data(
-    sensor: Dict[str, Any], raw_data: Dict[str, Any]
-) -> List[Dict[str, Any]]:
+def format_sensor_data(sensor: Dict[str, Any], raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
     Format raw sensor data for ingestion into Elasticsearch.
 
@@ -303,17 +301,11 @@ def format_sensor_data(
                     "sensor.temperature": reading.get("temperature", None),
                     "sensor.humidity": reading.get("humidity", None),
                     "sensor.dewpoint": reading.get("dewpoint", None),
-                    "sensor.barometric_pressure": reading.get(
-                        "barometric_pressure", None
-                    ),
+                    "sensor.barometric_pressure": reading.get( "barometric_pressure", None),
                     "sensor.altitude": reading.get("altitude", None),
                 }
-                record_hash = hashlib.sha256(
-                    json.dumps(record, sort_keys=True).encode()
-                ).hexdigest()
-                record.update(
-                    {"hash": record_hash, "@timestamp": reading.get("observed")}
-                )
+                record_hash = hashlib.sha256( json.dumps(record, sort_keys=True).encode()).hexdigest()
+                record.update( {"hash": record_hash, "@timestamp": reading.get("observed")})
                 records.append(record)
         return records
 
@@ -330,9 +322,7 @@ def send_to_elasticsearch(
         index_name (str): Elasticsearch index name.
     """
     with elasticapm.capture_span(name="send_to_elasticsearch"):  # type: ignore
-        logger.info(
-            f"Sending [{len(records)}] records to Elasticsearch index [{index_name}]."
-        )
+        logger.info( f"Sending [{len(records)}] records to Elasticsearch index [{index_name}].")
         success = 0
 
         try:
@@ -351,9 +341,7 @@ def send_to_elasticsearch(
             logger.error(f"Error during Elasticsearch indexing: {e}")
 
 
-def document_generator(
-    records: List[Dict[str, Any]], index_name: str
-) -> Generator[Dict[str, Any], None, None]:
+def document_generator(records: List[Dict[str, Any]], index_name: str) -> Generator[Dict[str, Any], None, None]:
     """
     Generate documents for bulk Elasticsearch indexing.
 
@@ -438,17 +426,12 @@ def main():
         sys.exit(1)
 
     # Initialize Elasticsearch client
-    es_client = Elasticsearch(
-        CFG["SECRETS"]["ES_URL"],
-        basic_auth=(CFG["SECRETS"]["ES_USERNAME"], CFG["SECRETS"]["ES_PASSWORD"]),
-    )
+    es_client = Elasticsearch(CFG["SECRETS"]["ES_URL"], basic_auth=(CFG["SECRETS"]["ES_USERNAME"], CFG["SECRETS"]["ES_PASSWORD"]),)
 
     # Validate the Elasticsearch connection
     try:
         if not es_client.ping():
-            logger.error(
-                "Failed to connect to Elasticsearch. Please check the configuration."
-            )
+            logger.error("Failed to connect to Elasticsearch. Please check the configuration.")
             sys.exit(1)
         else:
             logger.info("Successfully connected to Elasticsearch.")
@@ -477,20 +460,13 @@ def main():
             CFG["SECRETS"]["SENSORPUSH_PASSWORD"],
         )
 
-        authorization = authorize_sensorpush(
-            CFG["SETTINGS"]["AUTHORIZATION_URL"], authentication
-        )
+        authorization = authorize_sensorpush( CFG["SETTINGS"]["AUTHORIZATION_URL"], authentication)
 
         if authorization:
             for sensor in CFG["SENSORS"]:
                 logger.info( f"Processing data for sensor_id: [{sensor['id']}] sensor_name: [{sensor['name']}].")
-                timestamp = (
-                    get_sensor_timestamp(sensor["id"])
-                    or CFG["SETTINGS"]["DEFAULT_START_TIME"]
-                )
-                logger.info(
-                    f"Last timestamp for sensor_id: [{sensor['id']}]: [{timestamp}]."
-                )
+                timestamp = ( get_sensor_timestamp(sensor["id"]) or CFG["SETTINGS"]["DEFAULT_START_TIME"])
+                logger.info( f"Last timestamp for sensor_id: [{sensor['id']}]: [{timestamp}].")
 
                 raw_data = fetch_sensor_data(
                     url=CFG["SETTINGS"]["DATA_URL"],
@@ -504,13 +480,8 @@ def main():
                 if raw_data:
                     formatted_data = format_sensor_data(sensor, raw_data)
                     if formatted_data:
-                        update_sensor_timestamp(
-                            sensor_id=sensor["id"],
-                            timestamp=formatted_data[0]["sensor.observed"],
-                        )  # most recent timestamp is the first record
-                        send_to_elasticsearch(
-                            es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"]
-                        )
+                        update_sensor_timestamp( sensor_id=sensor["id"], timestamp=formatted_data[0]["sensor.observed"],)  # most recent timestamp is the first record
+                        send_to_elasticsearch(es_client, formatted_data, CFG["SETTINGS"]["INDEX_NAME"])
                     else:
                         logger.error(f"No formated data found for sensor_id: [{sensor['id']}].")
                 else:
