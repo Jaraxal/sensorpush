@@ -1,12 +1,13 @@
 {
-    "template": {
-        "settings": {
-            "index.lifecycle.name": "sensorpush",
-            "index.lifecycle.rollover_alias": "sensorpush",
-            "index.number_of_shards": "3"
-        }
-    },
-    "_meta": {
-        "description": "Index Settings for Sensorpush data."
+  "template": {
+    "settings": {
+      "index.lifecycle.name": "sensorpush",
+      "index.lifecycle.rollover_alias": "sensorpush",
+      "index.number_of_shards": "1",
+      "index.mode": "best_compression"
     }
+  },
+  "_meta": {
+    "description": "Index Settings for Sensorpush data."
+  }
 }
