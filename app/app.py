@@ -1,22 +1,24 @@
+import datetime
 import hashlib
 import json
+import logging
+import logging.config
 import sys
 import time
 from typing import Any, Dict, Generator, List, Optional
-from datetime import datetime
 
 import ecs_logging
-import logging
-import logging.config
 import elasticapm
 import requests
 from config import config as CFG
 from database import create_db_and_tables, engine
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConnectionError, RequestError, TransportError
+from elasticsearch.exceptions import (ConnectionError, RequestError,
+                                      TransportError)
 from elasticsearch.helpers import streaming_bulk
 from models import Sensor
 from sqlmodel import Session, select
+
+from elasticsearch import Elasticsearch
 
 
 # Logging configuration and initialization
@@ -277,14 +279,21 @@ def format_sensor_data(
         List[Dict[str, Any]]: Formatted sensor data as a list of dictionaries.
     """
     with elasticapm.capture_span(name="format_sensor_data"):  # type: ignore
+        # Sensors can go offline, so not every API query will return data for
+        # a given sensor. If no data is found, return an empty list.
+        if not raw_data or "sensors" not in raw_data:
+            logger.error("No sensor data found for formatting.")
+            return []
+
         records = []
-        current_datetime = datetime.utcnow()
+        current_datetime = datetime.datetime.now(datetime.timezone.utc)
         formatted_datetime = current_datetime.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
         for sensor_id, sensor_data in raw_data["sensors"].items():
             logger.info(f"Formatting data for sensor {sensor_id}.")
             for reading in sensor_data:
                 record = {
+                    "message": reading,
                     "sensor.ingested": formatted_datetime,
                     "sensor.observed": reading.get("observed", None),
                     "sensor.name": sensor.get("name", None),
@@ -359,6 +368,7 @@ def document_generator(
         yield {
             "_op_type": "create",
             "_index": index_name,
+            "_id": record["hash"],
             "_source": record,
         }
 
@@ -473,9 +483,7 @@ def main():
 
         if authorization:
             for sensor in CFG["SENSORS"]:
-                logger.info(
-                    f"Processing data for sensor_id: [{sensor['id']}] sensor_name: [{sensor['name']}]."
-                )
+                logger.info( f"Processing data for sensor_id: [{sensor['id']}] sensor_name: [{sensor['name']}].")
                 timestamp = (
                     get_sensor_timestamp(sensor["id"])
                     or CFG["SETTINGS"]["DEFAULT_START_TIME"]
