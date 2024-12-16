@@ -163,14 +163,7 @@ def authorize_sensorpush(url: str, authentication: Optional[str]) -> Optional[st
         return response.get("accesstoken")
 
 
-def fetch_sensor_data(
-    url: str,
-    access_token: str,
-    sensor_id: str,
-    measures: List[str],
-    start_time: str,
-    limit: int,
-) -> Dict[str, Any]:
+def fetch_sensor_data(url: str, access_token: str, sensor_id: str, measures: List[str], start_time: str, limit: int,) -> Dict[str, Any]:
     """
     Fetch sensor data from the API.
 
@@ -225,9 +218,7 @@ def update_sensor_timestamp(sensor_id: str, timestamp: str) -> None:
         timestamp (str): New timestamp to save.
     """
     with elasticapm.capture_span(name="update_sensor_timestamp"):  # type: ignore
-        logger.info(
-            f"Updating timestamp in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}]."
-        )
+        logger.info( f"Updating timestamp in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}].")
         with Session(engine) as session:
             sensor = session.exec(
                 select(Sensor).where(Sensor.id == sensor_id)
@@ -237,9 +228,7 @@ def update_sensor_timestamp(sensor_id: str, timestamp: str) -> None:
                 session.add(sensor)
                 session.commit()
             else:
-                logger.info(
-                    f"Record for sensor_id: [{sensor_id}] not found in the database."
-                )
+                logger.info(f"Record for sensor_id: [{sensor_id}] not found in the database.")
                 insert_sensor_record(sensor_id=sensor_id, timestamp=timestamp)
 
 
@@ -252,9 +241,7 @@ def insert_sensor_record(sensor_id: str, timestamp: str) -> None:
         timestamp (str): Timestamp for the record.
     """
     with elasticapm.capture_span(name="insert_sensor_timestamp"):  # type: ignore
-        logger.info(
-            f"Inserting new record in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}]."
-        )
+        logger.info(f"Inserting new record in the database for sensor_id: [{sensor_id}] timestamp: [{timestamp}].")
         with Session(engine) as session:
             new_record = Sensor(
                 id=sensor_id,
@@ -265,21 +252,11 @@ def insert_sensor_record(sensor_id: str, timestamp: str) -> None:
 
 
 # Formatting and Elasticsearch functions
-def format_sensor_data(sensor: Dict[str, Any], raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Format raw sensor data for ingestion into Elasticsearch.
-
-    Args:
-        sensor (Dict[str, Any]): Sensor metadata.
-        raw_data (Dict[str, Any]): Raw sensor data from the API.
-
-    Returns:
-        List[Dict[str, Any]]: Formatted sensor data as a list of dictionaries.
-    """
-    with elasticapm.capture_span(name="format_sensor_data"):  # type: ignore
+def format_sensor_data(sensor_list: Dict[str, Any], sensor_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    with elasticapm.capture_span(name="format_sensor_data"):
         # Sensors can go offline, so not every API query will return data for
         # a given sensor. If no data is found, return an empty list.
-        if not raw_data or "sensors" not in raw_data:
+        if not sensor_data or "sensors" not in sensor_data:
             logger.error("No sensor data found for formatting.")
             return []
 
@@ -287,25 +264,29 @@ def format_sensor_data(sensor: Dict[str, Any], raw_data: Dict[str, Any]) -> List
         current_datetime = datetime.datetime.now(datetime.timezone.utc)
         formatted_datetime = current_datetime.strftime('%Y-%m-%dT%H:%M:%S.000Z')
 
-        for sensor_id, sensor_data in raw_data["sensors"].items():
+        for sensor_id, sensor_readings in sensor_data["sensors"].items():
             logger.info(f"Formatting data for sensor {sensor_id}.")
-            for reading in sensor_data:
+            for reading in sensor_readings:
+                record = {}
+                reading_hash = hashlib.sha256( json.dumps(reading, sort_keys=True).encode()).hexdigest()
                 record = {
+                    "hash": reading_hash,
+                    "@timestamp": reading.get("observed"),
                     "message": reading,
                     "sensor.ingested": formatted_datetime,
                     "sensor.observed": reading.get("observed", None),
-                    "sensor.name": sensor.get("name", None),
+                    "sensor.name": sensor_list.get("name", None),
                     "sensor.id": sensor_id,
-                    "sensor.description": sensor.get("description", None),
+                    "sensor.description": sensor_list.get("description", None),
                     "sensor.gateways": reading.get("gateways", None),
                     "sensor.temperature": reading.get("temperature", None),
                     "sensor.humidity": reading.get("humidity", None),
                     "sensor.dewpoint": reading.get("dewpoint", None),
-                    "sensor.barometric_pressure": reading.get( "barometric_pressure", None),
+                    "sensor.barometric_pressure": reading.get(
+                        "barometric_pressure", None
+                    ),
                     "sensor.altitude": reading.get("altitude", None),
                 }
-                record_hash = hashlib.sha256( json.dumps(record, sort_keys=True).encode()).hexdigest()
-                record.update( {"hash": record_hash, "@timestamp": reading.get("observed")})
                 records.append(record)
         return records
 
