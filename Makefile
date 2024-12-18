@@ -1,18 +1,29 @@
 # Variables
 SHELL:=/bin/bash
 PROJECT := sensorpush
+VERSION := 1.0.0
 IMAGE_NAME := sensorpush-python
 COMPOSE_FILE := compose.yml
 GIT_HASH ?= $(shell git log --format="%h" -n 1)
-VENV = venv
-PYTHON = $(VENV)/bin/python
-PIP = $(VENV)/bin/pip
-PIP_COMPILE = $(VENV)/bin/pip-compile
-PIP_SYNC = $(VENV)/bin/pip-sync
+VENV = .venv
+UV_PYTHON = uv run python
+UV_PIP = uv pip
+UV_PIP_COMPILE = uv pip compile
+UV_PIP_SYNC = uv pip sync
 
-# Assumes the use of pyenv for managing Python versions
-PYENV_ROOT := $(HOME)/.pyenv
-PATH := $(PYENV_ROOT)/shims:$(PYENV_ROOT)/bin:$(PATH)
+# Assume uv, uvx, and ruff are installed
+UV := $(shell command -v uv)
+UVX := $(shell command -v uvx)
+
+# If uv is not found, print an error message and exit
+ifeq ($(UV),)
+  $(error "uv is required but not found.")
+endif
+
+# If uvx is not found, print an error message and exit
+ifeq ($(UVX),)
+  $(error "uvx is required but not found.")
+endif
 
 # Define color variables
 GREEN := $(shell tput setaf 2)
@@ -31,28 +42,9 @@ SRC_DIR = ./app
 
 # Commands for testing and linting
 TEST_CMD = ./$(VENV)/bin/pytest $(TEST_DIR)
-LINT_CMD = ./$(VENV)/bin/flake8 --exclude $(VENV) $(SRC_DIR)
-FMT_CMD = ./$(VENV)/bin/black $(SRC_DIR)
-
-PYTHON_CMD := $(shell command -v python || command -v python3)
-
-# If python is not found, print an error message and exit
-ifeq ($(PYTHON_CMD),)
-  $(error "Python is required but not found.")
-endif
-
-# Get Python version
-PYTHON_VERSION := $(shell $(PYTHON_CMD) --version 2>&1 | cut -d' ' -f2)
-
-# Split Python version into major, minor, and patch components
-PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -d. -f1)
-PYTHON_MINOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -d. -f2)
-PYTHON_PATCH_VERSION := $(shell echo $(PYTHON_VERSION) | cut -d. -f3)
-
-# Check if Python minor version is >= 11
-ifeq ($(shell [ $(PYTHON_MINOR_VERSION) -ge 11 ] && echo 1 || echo 0), 0)
-  $(error "Python version must be 3.11 or higher. Detected: $(PYTHON_VERSION)")
-endif
+#LINT_CMD = uvx ruff check --fix
+LINT_CMD = uvx ruff check
+FMT_CMD = uvx ruff format
 
 .DEFAULT_GOAL := help
 
@@ -62,23 +54,39 @@ help: ## Display help information about available rules
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
 	awk -v cyan="$(CYAN)" -v reset="$(RESET)" 'BEGIN {FS = ":.*##"}; {printf "- %s%s%s\n    %s\n\n", cyan, $$1, reset, $$2}'
 
-.PHONY: check-python-version
-check-python-version: ## Check the Python version
-	@echo "Using Python: $(PYTHON)"
-	@echo "Python Version: $(PYTHON_VERSION)"
+.PHONY: check-require
+check-require: ## Check if required programs are installed
+	@echo "Project Name: $(PROJECT)"
+	@echo "Project Version: $(VERSION)"
+	@echo ""
 
-all: init compile-requirements sync-requirements ## Setup environment and install dependencies
+	@echo "Checking the programs required for the build are installed..."
+	@uv run python --version >/dev/null 2>&1 || (echo "ERROR: python is required."; exit 1)
+	@uv --version >/dev/null 2>&1 || (echo "ERROR: uv is required."; exit 1)
+	@uvx --version >/dev/null 2>&1 || (echo "ERROR: uvx is required."; exit 1)
+	@uvx ruff --version >/dev/null 2>&1 || (echo "ERROR: ruff (uv tool) is required."; exit 1)
+	@echo ""
+
+	@echo "'python', 'uv', 'uvx', and 'ruff' are installed."
+	@echo ""
+
+	@uv run python --version
+	@uv --version
+	@uvx --version
+	@uvx ruff --version
+
+
+all: init compile-requirements sync-requirements build ## Setup environment and install dependencies
 	@echo "Running target: all"
 
-init: check-python-version ## Create a virtual environment
+init: check-require ## Create a virtual environment
 	@echo "Running target: init"
 	@if [ ! -d $(VENV) ]; then \
 		echo "Virtual environment does not exist, creating new virtual environment ..."; \
-		$(PYTHON_CMD) -m venv $(VENV); \
+		uv venv $(VENV); \
 	fi
 
 	@echo "Installing requirements into virtual environment..."
-	@$(PIP) install --upgrade pip setuptools wheel pip-tools
 	@$(MAKE) compile-requirements
 	@$(MAKE) sync-requirements
 	@echo "Virtual environment setup complete."
@@ -86,13 +94,13 @@ init: check-python-version ## Create a virtual environment
 .PHONY: compile-requirements
 compile-requirements: ## pip-compile Python requirement files
 	@echo "Running target: compile-requirements"
-	@$(PIP_COMPILE) $(REQUIREMENTS_IN) -o $(REQUIREMENTS_TXT)
-	@$(PIP_COMPILE) $(DEV_REQUIREMENTS_IN) -o $(DEV_REQUIREMENTS_TXT)
+	@$(UV_PIP_COMPILE) -o $(REQUIREMENTS_TXT) $(REQUIREMENTS_IN)
+	@$(UV_PIP_COMPILE) -o $(DEV_REQUIREMENTS_TXT) $(DEV_REQUIREMENTS_IN)
 
 .PHONY: sync-requirements
 sync-requirements: ## pip-sync Python modules with virtual environment
 	@echo "Running target: sync-requirements"
-	@$(PIP_SYNC) $(DEV_REQUIREMENTS_TXT)
+	@$(UV_PIP_SYNC) $(DEV_REQUIREMENTS_TXT)
 
 .PHONY: test
 test: ## Run unit tests
@@ -136,15 +144,13 @@ down: ## Stop and remove the Docker Compose services
 .PHONY: create-k8s-deployment
 create-k8s-deployment: ## Create k8s deployment
 	@echo "Running target: create-k8s-deployment"
-	@source $(VENV)/bin/activate; \
-	$(PYTHON) ./annotate_elastic_apm.py -m "Created application deployment"; \
+	$(UV_PYTHON) ./annotate_elastic_apm.py -m "Created application deployment"
 	#kubectl apply -f sensorpush_deployment.yaml
 
 .PHONY: delete-k8s-deployment
 delete-k8s-deployment: ## Delete k8s deployment
 	@echo "Running target: delete-k8s-deployment"
-	@source $(VENV)/bin/activate; \
-	$(PYTHON) ./annotate_elastic_apm.py -m "Deleted application deployment"; \
+	@$(UV_PYTHON) ./annotate_elastic_apm.py -m "Deleted application deployment"
 	#kubectl delete -f sensorpush_deployment.yaml
 
 .PHONY: clean
@@ -155,6 +161,7 @@ clean: ## Clean up virtual environment and other generated files
 		rm -rf $(VENV); \
 	fi
 
+	@echo "Removing generated files..."
 	@find . -type d -name '__pycache__' -exec rm -r {} +
 	@find . -type f -name '*.pyc' -exec rm -f {} +
 	@find . -type f -name '*.pyo' -exec rm -f {} +
