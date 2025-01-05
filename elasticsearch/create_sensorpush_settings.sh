@@ -1,7 +1,18 @@
-#!/bin/bash
+#!/bin/sh
 
-# Load environment variables from file
-export $(egrep -v '^#' ../app/env | xargs)
+# Path to the environment file
+ENV_FILE="../config/.env"
+
+# Check if the file exists
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Error: File '$ENV_FILE' does not exist."
+    exit 1
+fi
+
+# Load environment variables from the file
+export $(grep -v '^#' "$ENV_FILE" | xargs)
+
+echo "Environment variables loaded successfully."
 
 curl -X PUT --user $ELASTIC_SERVER_USERNAME:$ELASTIC_SERVER_PASSWORD "$ELASTIC_SERVER_URL/_component_template/sensorpush-mappings?pretty" -H 'Content-Type: application/json' -d @sensorpush_index_mappings.json
 
