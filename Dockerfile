@@ -1,5 +1,5 @@
 # First, build the application in the `/app` directory.
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 
 # Then, use a final image without uv
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 # It is important to use the image that matches the builder, as the path to the
 # Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
 # will fail.
@@ -25,6 +25,9 @@ FROM python:3.11-slim-bookworm
 # Configure Python to not buffer "stdout" or create .pyc files
 ENV PYTHONBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+
+# Add a non-root user  
+RUN adduser --disabled-login app
 
 # Copy the application from the builder
 COPY --from=builder --chown=app:app /app /app
@@ -36,4 +39,4 @@ USER app
 WORKDIR /app
 
 # Run the app
-CMD ["python3", "-u", "app.py"]
+CMD ["python", "main.py"]
