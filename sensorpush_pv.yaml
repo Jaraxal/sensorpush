@@ -1,0 +1,18 @@
+# PersistentVolume
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sensorpush-python-pv
+  namespace: default
+  labels:
+    type: local
+spec:
+  storageClassName: hostpath
+  capacity:
+    storage: 256Mi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: /Users/michael/Library/CloudStorage/Dropbox/Development/Python/sensorpush/sensorpush/app/data
+  persistentVolumeReclaimPolicy: Retain

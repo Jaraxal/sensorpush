@@ -1,22 +1,28 @@
-[SETTINGS]
 # Elastic configuration
-INDEX_NAME = "sensorpush"
-DELETE_INDEX = false
+INDEX_NAME = "delete-me"
+DELETE_INDEX = true
 
 # APM Configuration
-APM_SERVICE_VERSION = "2.0"
-APM_ENVIRONMENT = "Production"
-APM_SERVICE_NAME = "python-sensorpush"
+APM_SERVICE_VERSION = "1.0"
+APM_ENVIRONMENT = "Development"
+APM_SERVICE_NAME = "sensorpush-refactor"
 
 # SensorPush Configuration
-DEFAULT_START_TIME = "2024-12-01T00:00:00.000Z"
+DEFAULT_START_TIME = "2025-01-05:00:00.000Z"
 AUTHENTICATE_URL = "https://api.sensorpush.com/api/v1/oauth/authorize"
 AUTHORIZATION_URL = "https://api.sensorpush.com/api/v1/oauth/accesstoken"
 GATEWAY_URL = "https://api.sensorpush.com/api/v1/devices/gateways"
 SENSOR_URL = "https://api.sensorpush.com/api/v1/devices/sensors"
 DATA_URL = "https://api.sensorpush.com/api/v1/samples"
-LIMIT = 500
+DATA_LIMIT = 500
 SLEEP_DURATION = 60
+MEASURES = [
+    "temperature",
+    "humidity",
+    "dewpoint",
+    "barometric_pressure",
+    "altitude",
+]
 
 # Sensor Configuration
 [[SENSORS]]

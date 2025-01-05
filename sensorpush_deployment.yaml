@@ -1,0 +1,37 @@
+# Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensorpush-python
+  namespace: default
+  labels:
+    app: sensorpush-python
+spec:
+  selector:
+    matchLabels:
+      app: sensorpush-python
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: sensorpush-python
+    spec:
+      containers:
+        - name: sensorpush-python
+          image: sensorpush-python
+          imagePullPolicy: Never
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "500m"
+            limits:
+              memory: "128Mi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: sensorpush-python-pv
+              mountPath: /home/sensorpush/data
+      volumes:
+        - name: sensorpush-pv
+          persistentVolumeClaim:
+            claimName: sensorpush-python-pvc

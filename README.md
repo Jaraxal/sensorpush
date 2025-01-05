@@ -4,15 +4,14 @@ Example Python application that uses the SensorPush API, Elastic Cloud with Elas
 
 ## Configuration
 
-Before running the app you must update the `app/config/settings.toml` and `app/config/secrets.toml` configuration files.
+Before running the app you must update the `config/settings.toml` and `aonfig/.secrets.toml` configuration files.
 
-### app/config/settings.toml
+### config/settings.toml
 
 The `settings.toml` configuration file should have the following configuration settings defined, as appropriate, for your
 environment.
 
 ```toml
-[SETTINGS]
 # Elastic configuration
 INDEX_NAME = "sensorpush"
 DELETE_INDEX = false
@@ -39,7 +38,7 @@ name = "sensor1"
 description = "Back Outdoor Sensor"
 ```
 
-For each SensorPush sensor you have, you should add them to `app/config/settings.toml`.  For example, two sensors would look
+For each SensorPush sensor you have, you should add them to `config/settings.toml`.  For example, two sensors would look
 like this in the configuration.
 
 ```toml
@@ -55,13 +54,12 @@ name = "sensor2"
 description = "Office Sensor"
 ```
 
-### app/config/secrets.toml
+### config/.secrets.toml
 
-The `secrets.toml` configuration file should have the following configuration settings defined, as appropriate, for your
+The `.secrets.toml` configuration file should have the following configuration settings defined, as appropriate, for your
 environment.
 
 ```toml
-[SECRETS]
 # Elastic Server Configuration
 ES_USERNAME = "YOUR ELASTICSEARCH USERNAME"
 ES_PASSWORD = "YOUR ELASTICSEARCH PASSWORD"
